@@ -22,3 +22,7 @@ class Collection(models.Model):
 
     def __str__(self):
         return self.title
+    
+class MovieCollection(models.Model):
+    collection = models.ForeignKey(Collection, on_delete=models.CASCADE)
+    movie = models.ForeignKey(Movie, on_delete=models.CASCADE)

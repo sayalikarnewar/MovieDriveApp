@@ -68,6 +68,12 @@ class CollectionListView(generics.ListAPIView):
         }, status=status.HTTP_200_OK)
 
 # 5. Create Collection
+class CollectionDetailView(generics.RetrieveAPIView):
+    permission_classes = [IsAuthenticated]
+    queryset = Collection.objects.all()
+    serializer_class = CollectionSerializer
+    lookup_field = 'uuid'
+
 class CollectionCreateView(generics.CreateAPIView):
     permission_classes = [IsAuthenticated]
     queryset = Collection.objects.all()
@@ -76,15 +82,7 @@ class CollectionCreateView(generics.CreateAPIView):
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
 
-# 6. Update Collection Movies by ID
 class CollectionUpdateView(generics.UpdateAPIView):
-    permission_classes = [IsAuthenticated]
-    queryset = Collection.objects.all()
-    serializer_class = CollectionSerializer
-    lookup_field = 'uuid'
-
-# 7. Get Collection Details by ID
-class CollectionDetailView(generics.RetrieveAPIView):
     permission_classes = [IsAuthenticated]
     queryset = Collection.objects.all()
     serializer_class = CollectionSerializer

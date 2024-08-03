@@ -2,7 +2,7 @@
 
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import Movie, Collection
+from .models import Movie, Collection, MovieCollection
 
 # User Serializer for registration
 class UserSerializer(serializers.ModelSerializer):
@@ -19,50 +19,60 @@ class UserSerializer(serializers.ModelSerializer):
         )
         return user
 
-# Movie Serializer
 class MovieSerializer(serializers.ModelSerializer):
     class Meta:
         model = Movie
         fields = ['title', 'description', 'genres', 'uuid']
 
-class MovieUUIDSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Movie
-        fields = [
-            "uuid",
-        ]
 class CollectionSerializer(serializers.ModelSerializer):
     movies = MovieSerializer(many=True)
+
     class Meta:
         model = Collection
-        fields = [
-            "title",
-            "description",
-            "movies",
-            "uuid",
-        ]
-    
+        fields = ['uuid', 'title', 'description', 'movies']
+
     def create(self, validated_data):
-        movies_data = validated_data.pop('movies', [])
+        movies_data = validated_data.pop('movies')
         collection = Collection.objects.create(**validated_data)
-        print(f"Created collection: {collection.title} with UUID: {collection.uuid}")
 
+        # Handle movies
         for movie_data in movies_data:
-            movie, created = Movie.objects.get_or_create(uuid=movie_data['uuid'], defaults=movie_data)
-            collection.movies.add(movie)
-
+            # Check if 'uuid' is in movie_data
+            if 'uuid' not in movie_data:
+                raise serializers.ValidationError("Each movie must have a UUID.")
+            
+            movie_uuid = movie_data['uuid']
+            movie, created = Movie.objects.get_or_create(
+                uuid=movie_uuid,
+                defaults={
+                    'title': movie_data.get('title', ''),
+                    'description': movie_data.get('description', ''),
+                    'genres': movie_data.get('genres', '')
+                }
+            )
+            MovieCollection.objects.create(collection=collection, movie=movie)
+        
         return collection
 
     def update(self, instance, validated_data):
-        movies_data = validated_data.pop('movies', None)
-        if movies_data is not None:
-            instance.movies.clear()  # Remove existing movies
-            for movie_data in movies_data:
-                movie, created = Movie.objects.get_or_create(uuid=movie_data['uuid'], defaults=movie_data)
-                instance.movies.add(movie)
-        
-        # Update title and description if provided
+        movies_data = validated_data.pop('movies', [])
         instance.title = validated_data.get('title', instance.title)
         instance.description = validated_data.get('description', instance.description)
         instance.save()
+
+        # Clear existing MovieCollection instances
+        MovieCollection.objects.filter(collection=instance).delete()
+
+        # Create new MovieCollection instances
+        for movie_data in movies_data:
+            movie, created = Movie.objects.get_or_create(
+                uuid=movie_data['uuid'],
+                defaults={
+                    'title': movie_data['title'],
+                    'description': movie_data['description'],
+                    'genres': movie_data['genres']
+                }
+            )
+            MovieCollection.objects.create(collection=instance, movie=movie)
+
         return instance
